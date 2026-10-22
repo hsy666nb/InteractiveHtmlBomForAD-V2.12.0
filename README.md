@@ -1,11 +1,5 @@
 # InteractiveHtmlBomForAD
 
-[InteractiveHtmlBom](https://github.com/openscopeproject/InteractiveHtmlBom), a beatiful plugin in KiCad, this is a implementation in AD10 just with basic function. please refer to the original project for more functions.
-
-将[InteractiveHtmlBom](https://github.com/openscopeproject/InteractiveHtmlBom)这个插件作了一些修改，使其能在AD中运行，这里只实现基础的功能，更多的功能请参考原项目。
-
-到右边的[Releases](https://github.com/lianlian33/InteractiveHtmlBomForAD/releases)或到网盘下载http://luc33.ys168.com/ 密码123b
-
 ### 安装和使用 Installation and Usage 
  1. 运行一次Initianlize.bat
  <font color=#00008B>Run Initialize.bat once.</font>
