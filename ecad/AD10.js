@@ -645,7 +645,7 @@ function parsePcb(config) {
             res.attr.push("inverted");
         }
         res["type"] = "text";
-        res["text"] = Prim.Text;
+        res["text"] = String(Prim.Text).replace(/\r/g, "");
         res["angle"] = Prim.Rotation.round();
         res["layer"] = Prim.Layer;
 

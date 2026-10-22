@@ -52,7 +52,9 @@ function drawText(ctx, text, color) {
     tilt = 0.125;
   }
   var interline = text.height * 1.5 + text.thickness;
-  var txt = text.text.split("\n");
+  var spaceWidth = pcbdata.font_data[' '] ? pcbdata.font_data[' '].w : 0.6;
+  // Normalize CRLF and tolerate glyphs missing from the embedded stroke font.
+  var txt = String(text.text).replace(/\r/g, "").split("\n");
   // KiCad ignores last empty line.
   if (txt[txt.length - 1] == '') txt.pop();
   ctx.rotate(deg2rad(angle));
@@ -62,7 +64,7 @@ function drawText(ctx, text, color) {
     var lineWidth = text.thickness + interline / 2 * tilt;
     for (var j = 0; j < txt[i].length; j++) {
       if (txt[i][j] == '\t') {
-        var fourSpaces = 4 * pcbdata.font_data[' '].w * text.width;
+        var fourSpaces = 4 * spaceWidth * text.width;
         lineWidth += fourSpaces - lineWidth % fourSpaces;
       } else {
         if (txt[i][j] == '~') {
@@ -70,7 +72,8 @@ function drawText(ctx, text, color) {
           if (j == txt[i].length)
             break;
         }
-        lineWidth += pcbdata.font_data[txt[i][j]].w * text.width;
+        var glyph = pcbdata.font_data[txt[i][j]];
+        lineWidth += glyph ? glyph.w * text.width : spaceWidth * text.width;
       }
     }
     var offsetx = -lineWidth * (text.justify[0] + 1) / 2;
@@ -78,7 +81,7 @@ function drawText(ctx, text, color) {
     for (var j = 0; j < txt[i].length; j++) {
       if (config.kicad_text_formatting) {
         if (txt[i][j] == '\t') {
-          var fourSpaces = 4 * pcbdata.font_data[' '].w * text.width;
+          var fourSpaces = 4 * spaceWidth * text.width;
           offsetx += fourSpaces - offsetx % fourSpaces;
           continue;
         } else if (txt[i][j] == '~') {
@@ -91,6 +94,10 @@ function drawText(ctx, text, color) {
         }
       }
       var glyph = pcbdata.font_data[txt[i][j]];
+      if (!glyph) {
+        offsetx += spaceWidth * text.width;
+        continue;
+      }
       if (inOverbar) {
         var overbarStart = [offsetx, -text.height * 1.4 + offsety];
         var overbarEnd = [offsetx + text.width * glyph.w, overbarStart[1]];
