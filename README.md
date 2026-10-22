@@ -1,13 +1,12 @@
 # InteractiveHtmlBomForAD
 
-### 安装和使用 Installation and Usage 
- 1. 运行一次Initianlize.bat
- <font color=#00008B>Run Initialize.bat once.</font>
- 2. 用AD打开InteractiveHtmlBomForAD.PrjScr, 打开pcb文件，打开Run Script...窗口，运行main()函数，生成ibom。
- <font color=#00008B>Open InteractiveHtmlBomForAD.PrjScr in AD, open a pcbdoc and open *Run Script...* dialog then run main() function to generate ibom.</font>
- 3. 关于脚本安装和运行的细节，请善用搜索...
-  <font color=#00008B>For more details about running scripts in AD, please search on Internet...</font>
+本文件是在原作者的基础上再优化的,实际上V2.12是原版的版本号，这个程序兼容原版了之后，我又优化了以下BUG，但是目前的版本号依旧还是先用V2.12.0，现在已经完全够使用到AD里了，不烧心~
 
-#### Link to original project for more info.
+新版LOG
+        一些修复和优化:
 
-* [InteractiveHtmlBom](https://github.com/openscopeproject/InteractiveHtmlBom)
+        1、修复:生成BOM时，无法截取源文件'.'符号及其之后的字符的问题。
+        2、修复:当PCB封装内有AD24以上版本的"自定义焊盘"时，生成失败的问题。
+        3、修复:当PCB封装内有走线时，生成失败的问题。
+        4、优化页面，现在页面里大部分描述都是中文的了
+
