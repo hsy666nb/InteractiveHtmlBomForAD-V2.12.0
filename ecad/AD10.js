@@ -708,16 +708,45 @@ function parsePcb(config) {
 
         var bbox = get_bbox(Prim);
         res["pos"] = bbox["center"];
+        res["bbox"] = bbox["size"]; // used to keep off-board notes inside the view
 
-        if (Prim.TextKind == 0) {
-            res["thickness"] = CoordToMMs(Prim.Width).round();
-            res["height"] = CoordToMMs(Prim.Size).round();
-            res["width"] = res["height"].round(); // single char's width in kicad
-        } else if (Prim.TextKind == 1) {
-            res["height"] = CoordToMMs(Prim.TTFTextHeight * 0.6).round();
-            res["width"] = CoordToMMs(Prim.TTFTextWidth * 0.9 / len).round();
-            res["thickness"] = CoordToMMs(res["height"] * 0.1).round();
+        var text_height = 0;
+        var text_thickness = 0;
+        if (Prim.TextKind == 1) {
+            // TrueType text: AD does not expose per-character metrics, so the page
+            // estimates the advance width of every character by class. Keep the
+            // glyphs unstretched (1 em = height) and let the estimator lay them out.
+            text_height = CoordToMMs(Prim.TTFTextHeight * 0.6);
+            text_thickness = text_height * 0.1;
+            res["ttf"] = 1;
+        } else {
+            text_height = CoordToMMs(Prim.Size);
+            text_thickness = CoordToMMs(Prim.Width);
         }
+
+        // Multi-line notes (text frames) report a zero TTF height, and some objects
+        // report a zero stroke size as well. Fall back to the selection box so the
+        // text stays visible instead of being exported with a zero size.
+        if (!(text_height > 0)) {
+            // Text frames report 0 for TTFTextHeight; AD's Size is the line box,
+            // which renders taller than the visible glyph height.
+            text_height = CoordToMMs(Prim.Size) * 0.6;
+        }
+        if (!(text_height > 0)) {
+            var n_lines = String(Prim.Text).split("\n").length;
+            text_height = CoordToMMs(Prim.BoundingRectangleForSelection.Top -
+                Prim.BoundingRectangleForSelection.Bottom) / (1.5 * n_lines - 0.1);
+        }
+        if (!(text_height > 0)) {
+            text_height = 1;
+        }
+        if (!(text_thickness > 0)) {
+            text_thickness = text_height * 0.1;
+        }
+
+        res["height"] = text_height.round();
+        res["thickness"] = text_thickness.round();
+        res["width"] = res["height"]; // single char's width in kicad
 
         // res["horiz_justify"] = 0; // center align, tag 2.3
         res["justify"] = [0, 0];  //

@@ -18,6 +18,29 @@ function calcFontPoint(linepoint, text, offsetx, offsety, tilt) {
   return point;
 }
 
+// TrueType text has no per-character metrics in the exported data, so estimate
+// the advance width by character class (in em units). Returns the width of one
+// character, used both for laying out a line and for drawing an overbar.
+function ttfCharWidth(ch) {
+  var c = ch.charCodeAt(0);
+  if (c >= 0x2E80) return 1.0;                                  // CJK and fullwidth
+  if ("iIl1.,;:'\"!|`".indexOf(ch) >= 0) return 0.32;           // very narrow
+  if ("fjrt()[]{}/\\-".indexOf(ch) >= 0) return 0.45;           // narrow
+  if ("mwMW@%#&".indexOf(ch) >= 0) return 0.92;                 // wide
+  if (c >= 65 && c <= 90) return 0.68;                          // uppercase
+  return 0.58;                                                  // default
+}
+
+function charAdvance(ch, text, spaceWidth) {
+  if (text.ttf) {
+    // The stroke font glyphs fill their em box, so the estimated advances need a
+    // little extra room or consecutive characters end up touching each other.
+    return ttfCharWidth(ch) * text.width * 1.4;
+  }
+  var glyph = pcbdata.font_data[ch];
+  return (glyph ? glyph.w : spaceWidth) * text.width;
+}
+
 function drawText(ctx, text, color) {
   if ("ref" in text && !settings.renderReferences) return;
   if ("val" in text && !settings.renderValues) return;
@@ -74,8 +97,7 @@ function drawText(ctx, text, color) {
           if (j == txt[i].length)
             break;
         }
-        var glyph = pcbdata.font_data[txt[i][j]];
-        lineWidth += glyph ? glyph.w * text.width : spaceWidth * text.width;
+        lineWidth += charAdvance(txt[i][j], text, spaceWidth);
       }
     }
     var offsetx = -lineWidth * (text.justify[0] + 1) / 2;
@@ -97,12 +119,12 @@ function drawText(ctx, text, color) {
       }
       var glyph = pcbdata.font_data[txt[i][j]];
       if (!glyph) {
-        offsetx += spaceWidth * text.width;
+        offsetx += charAdvance(txt[i][j], text, spaceWidth);
         continue;
       }
       if (inOverbar) {
         var overbarStart = [offsetx, -text.height * 1.4 + offsety];
-        var overbarEnd = [offsetx + text.width * glyph.w, overbarStart[1]];
+        var overbarEnd = [offsetx + charAdvance(txt[i][j], text, spaceWidth), overbarStart[1]];
 
         if (!lastHadOverbar) {
           overbarStart[0] += text.height * 1.4 * tilt;
@@ -123,7 +145,7 @@ function drawText(ctx, text, color) {
         }
         ctx.stroke();
       }
-      offsetx += glyph.w * text.width;
+      offsetx += charAdvance(txt[i][j], text, spaceWidth);
     }
     offsety += interline;
   }
@@ -677,6 +699,35 @@ function rotateVector(v, angle) {
   ];
 }
 
+// The view is fitted to the board outline, so silkscreen notes placed next to
+// the board would fall outside the canvas. Include their boxes in the fit.
+function getSceneBBox() {
+  var b = pcbdata.edges_bbox;
+  var box = { minx: b.minx, miny: b.miny, maxx: b.maxx, maxy: b.maxy };
+  var drawings = pcbdata.drawings;
+  if (!drawings || Array.isArray(drawings)) {
+    return box;
+  }
+  for (var group in drawings) {
+    var bySide = drawings[group];
+    for (var side in bySide) {
+      if (!Array.isArray(bySide[side])) continue;
+      for (var d of bySide[side]) {
+        if (d.type !== "text" || !d.bbox) continue;
+        var x0 = d.pos[0] - d.bbox[0] / 2;
+        var x1 = d.pos[0] + d.bbox[0] / 2;
+        var y0 = d.pos[1] - d.bbox[1] / 2;
+        var y1 = d.pos[1] + d.bbox[1] / 2;
+        if (x0 < box.minx) box.minx = x0;
+        if (x1 > box.maxx) box.maxx = x1;
+        if (y0 < box.miny) box.miny = y0;
+        if (y1 > box.maxy) box.maxy = y1;
+      }
+    }
+  }
+  return box;
+}
+
 function applyRotation(bbox, flip) {
   var corners = [
     [bbox.minx, bbox.miny],
@@ -695,7 +746,7 @@ function applyRotation(bbox, flip) {
 
 function recalcLayerScale(layerdict, width, height) {
   var flip = (layerdict.layer === "B");
-  var bbox = applyRotation(pcbdata.edges_bbox, flip);
+  var bbox = applyRotation(getSceneBBox(), flip);
   var scalefactor = 0.98 * Math.min(
     width / (bbox.maxx - bbox.minx),
     height / (bbox.maxy - bbox.miny)
