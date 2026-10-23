@@ -108,9 +108,10 @@ function saveBomTable(output) {
   }
 
   if (output != 'clipboard') {
-    // To file: csv or txt
-    var blob = new Blob([text], {
-      type: `text/${output}`
+    // To file: csv or txt. Prefix a UTF-8 BOM so Excel opens the Chinese
+    // headers as UTF-8 instead of the local ANSI codepage (which garbles them).
+    var blob = new Blob(["\uFEFF" + text], {
+      type: `text/${output};charset=utf-8`
     });
     saveFile(`${pcbdata.metadata.title}.${output}`, blob);
   } else {
@@ -439,14 +440,14 @@ function overwriteSettings(newSettings) {
   document.getElementById("fabricationCheckbox").checked = settings.renderFabrication;
   silkscreenVisible(settings.renderSilkscreen);
   document.getElementById("silkscreenCheckbox").checked = settings.renderSilkscreen;
-  referencesVisible(settings.renderReferences);
-  document.getElementById("referencesCheckbox").checked = settings.renderReferences;
   valuesVisible(settings.renderValues);
   document.getElementById("valuesCheckbox").checked = settings.renderValues;
   tracksVisible(settings.renderTracks);
   document.getElementById("tracksCheckbox").checked = settings.renderTracks;
   zonesVisible(settings.renderZones);
   document.getElementById("zonesCheckbox").checked = settings.renderZones;
+  viasVisible(settings.renderVias);
+  document.getElementById("viasCheckbox").checked = settings.renderVias;
   dnpOutline(settings.renderDnpOutline);
   document.getElementById("dnpOutlineCheckbox").checked = settings.renderDnpOutline;
   setRedrawOnDrag(settings.redrawOnDrag);
@@ -508,6 +509,7 @@ var settings = {
   renderDnpOutline: false,
   renderTracks: true,
   renderZones: true,
+  renderVias: true,
   columnOrder: [],
   hiddenColumns: [],
   netColors: {},
@@ -542,7 +544,7 @@ function initDefaults() {
   settings.checkboxes = bomCheckboxes.split(",").filter((e) => e);
   document.getElementById("bomCheckboxes").value = bomCheckboxes;
 
-  var highlightpin1 = readStorage("highlightpin1") || config.highlight_pin1;
+  var highlightpin1 = config.highlight_pin1 || "none";
   if (highlightpin1 === "false") highlightpin1 = "none";
   if (highlightpin1 === "true") highlightpin1 = "all";
   setHighlightPin1(highlightpin1);
@@ -565,23 +567,63 @@ function initDefaults() {
     func(b);
   }
 
-  initBooleanSetting("padsVisible", config.show_pads, "padsCheckbox", padsVisible);
-  initBooleanSetting("fabricationVisible", config.show_fabrication, "fabricationCheckbox", fabricationVisible);
-  initBooleanSetting("silkscreenVisible", config.show_silkscreen, "silkscreenCheckbox", silkscreenVisible);
-  initBooleanSetting("referencesVisible", true, "referencesCheckbox", referencesVisible);
+  // Settings that the AD exporter controls: the exported config wins over any
+  // value remembered from a previous session, so the generated HTML starts in
+  // the state chosen in the AD dialog.
+  function initExportedBooleanSetting(def, elementId, func, fallback) {
+    var b;
+    if (def === undefined || def === null) {
+      b = (fallback === undefined) ? true : fallback;
+    } else {
+      b = (def === true || def === "true" || def === 1);
+    }
+    document.getElementById(elementId).checked = b;
+    func(b);
+  }
+
+  // A setting whose data was not exported still stays in the menu, grayed out
+  // and non-interactive, so the panel layout does not change between builds.
+  function disableMenuSetting(elementId) {
+    var checkbox = document.getElementById(elementId);
+    checkbox.checked = false;
+    checkbox.disabled = true;
+    var label = checkbox.closest("label");
+    if (label) {
+      label.classList.add("disabled");
+    }
+  }
+
+  initExportedBooleanSetting(config.show_pads, "padsCheckbox", padsVisible, true);
+  initExportedBooleanSetting(config.show_fabrication, "fabricationCheckbox", fabricationVisible, false);
+  initExportedBooleanSetting(config.show_silkscreen, "silkscreenCheckbox", silkscreenVisible, true);
+  settings.renderReferences = true;
   initBooleanSetting("valuesVisible", true, "valuesCheckbox", valuesVisible);
   if ("tracks" in pcbdata) {
-    initBooleanSetting("tracksVisible", true, "tracksCheckbox", tracksVisible);
-    initBooleanSetting("zonesVisible", true, "zonesCheckbox", zonesVisible);
+    initExportedBooleanSetting(config.show_tracks, "tracksCheckbox", tracksVisible, true);
+    initExportedBooleanSetting(config.show_zones, "zonesCheckbox", zonesVisible, true);
   } else {
-    document.getElementById("tracksAndZonesCheckboxes").style.display = "none";
+    disableMenuSetting("tracksCheckbox");
+    disableMenuSetting("zonesCheckbox");
     tracksVisible(false);
     zonesVisible(false);
   }
+  var hasVias = false;
+  for (var fp of pcbdata.footprints) {
+    if ((fp.pads || []).some(p => p.via)) {
+      hasVias = true;
+      break;
+    }
+  }
+  if (hasVias) {
+    initExportedBooleanSetting(config.show_vias, "viasCheckbox", viasVisible, true);
+  } else {
+    disableMenuSetting("viasCheckbox");
+    viasVisible(false);
+  }
   initBooleanSetting("dnpOutline", false, "dnpOutlineCheckbox", dnpOutline);
-  initBooleanSetting("redrawOnDrag", config.redraw_on_drag, "dragCheckbox", setRedrawOnDrag);
+  initExportedBooleanSetting(config.redraw_on_drag, "dragCheckbox", setRedrawOnDrag, true);
   initBooleanSetting("highlightRowOnClick", false, "highlightRowOnClickCheckbox", setHighlightRowOnClick);
-  initBooleanSetting("darkmode", config.dark_mode, "darkmodeCheckbox", setDarkMode);
+  initExportedBooleanSetting(config.dark_mode, "darkmodeCheckbox", setDarkMode, false);
 
   var fields = ["checkboxes", "References"].concat(config.fields).concat(["Quantity"]);
   var hcols = JSON.parse(readStorage("hiddenColumns"));
@@ -609,7 +651,7 @@ function initDefaults() {
   }
   document.getElementById("boardRotation").value = settings.boardRotation / 5;
   document.getElementById("rotationDegree").textContent = settings.boardRotation;
-  initBooleanSetting("offsetBackRotation", config.offset_back_rotation, "offsetBackRotationCheckbox", setOffsetBackRotation);
+  initExportedBooleanSetting(config.offset_back_rotation, "offsetBackRotationCheckbox", setOffsetBackRotation, false);
 
   settings.netColors = JSON.parse(readStorage("netColors")) || {};
 }

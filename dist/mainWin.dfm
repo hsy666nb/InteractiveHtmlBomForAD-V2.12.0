@@ -3,7 +3,7 @@ object mainWin: TmainWin
   Top = 6
   Cursor = crArrow
   Caption = 'Interactive BOM v2.12.0'
-  ClientHeight = 500
+  ClientHeight = 528
   ClientWidth = 452
   Color = clWhite
   Font.Charset = DEFAULT_CHARSET
@@ -23,7 +23,7 @@ object mainWin: TmainWin
     Left = 8
     Top = 8
     Width = 440
-    Height = 488
+    Height = 516
     ActivePage = TabSheet1
     Anchors = [akLeft, akTop, akRight, akBottom]
     TabOrder = 0
@@ -69,13 +69,30 @@ object mainWin: TmainWin
         Left = 7
         Top = 81
         Width = 413
-        Height = 95
+        Height = 120
         Caption = 'Extra PCB Data'
         Anchors = [akLeft, akTop, akRight]
         TabOrder = 2
+        object RBtnGenerateAll: TRadioButton
+          Left = 14
+          Top = 18
+          Width = 150
+          Height = 17
+          Caption = 'Generate Full'
+          Checked = True
+          TabOrder = 4
+        end
+        object RBtnGenerateCompact: TRadioButton
+          Left = 180
+          Top = 18
+          Width = 150
+          Height = 17
+          Caption = 'Compact'
+          TabOrder = 5
+        end
         object CbIncludeTracksAndSolidPolygons: TCheckBox
           Left = 14
-          Top = 31
+          Top = 46
           Width = 167
           Height = 17
           Caption = 'Include Tracks/Polygons'
@@ -83,7 +100,7 @@ object mainWin: TmainWin
         end
         object CbIncludeVias: TCheckBox
           Left = 14
-          Top = 63
+          Top = 75
           Width = 87
           Height = 17
           Caption = 'Include Vias'
@@ -91,26 +108,24 @@ object mainWin: TmainWin
         end
         object CbIncludeHatched: TCheckBox
           Left = 206
-          Top = 31
+          Top = 46
           Width = 167
           Height = 17
           Caption = 'Include Hatched'
-          Enabled = False
           TabOrder = 2
         end
         object CbIncludeNets: TCheckBox
           Left = 206
-          Top = 63
+          Top = 75
           Width = 87
           Height = 17
           Caption = 'Include Nets'
-          Enabled = False
           TabOrder = 3
         end
       end
       object GroupBox4: TGroupBox
         Left = 7
-        Top = 185
+        Top = 209
         Width = 413
         Height = 103
         Caption = 'Component Blacklist'
@@ -149,7 +164,7 @@ object mainWin: TmainWin
       end
       object GenerateBom: TButton
         Left = 336
-        Top = 418
+        Top = 442
         Width = 80
         Height = 25
         Caption = 'Generate BOM'
@@ -159,7 +174,7 @@ object mainWin: TmainWin
       end
       object GroupBox10: TGroupBox
         Left = 7
-        Top = 297
+        Top = 321
         Width = 413
         Height = 58
         Caption = 'PCB Outline Layer'
@@ -168,7 +183,7 @@ object mainWin: TmainWin
         object RBtnKeepOutLayer: TRadioButton
           Left = 206
           Top = 28
-          Width = 130
+          Width = 200
           Height = 17
           Caption = 'Keep Out Layer'
           TabOrder = 0
@@ -185,7 +200,7 @@ object mainWin: TmainWin
       end
       object GroupBox8: TGroupBox
         Left = 7
-        Top = 362
+        Top = 386
         Width = 413
         Height = 50
         Caption = 'Other'

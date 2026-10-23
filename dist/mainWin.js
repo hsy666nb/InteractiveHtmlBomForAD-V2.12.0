@@ -9,6 +9,8 @@ function mainWinShow(Sender) {
     GroupBox1.Caption = "BOM \u8F93\u51FA\u8DEF\u5F84";
     StaticText1.Caption = "\u76EE\u5F55";
     GroupBox3.Caption = "\u9644\u52A0 PCB \u6570\u636E";
+    RBtnGenerateAll.Caption = "\u5B8C\u6574\u751F\u6210";
+    RBtnGenerateCompact.Caption = "\u7CBE\u7B80\u751F\u6210";
     CbIncludeTracksAndSolidPolygons.Caption = "\u5305\u542B\u8D70\u7EBF/\u5B9E\u5FC3\u94DC\u76AE";
     CbIncludeVias.Caption = "\u5305\u542B\u8FC7\u5B54";
     CbIncludeHatched.Caption = "\u5305\u542B\u7F51\u683C\u586B\u5145";
@@ -73,12 +75,16 @@ function mainWinShow(Sender) {
         } else {
             TEditCurrentPcbPath.Text = iniFile.ReadString("General", "Directory", "");
         }
-        CbIncludeTracksAndSolidPolygons.Checked = iniFile.ReadBool("General", "IncludeTracksAndSolidPolygons", false);
+        CbIncludeTracksAndSolidPolygons.Checked = iniFile.ReadBool("General", "IncludeTracksAndSolidPolygons", true);
         CbIncludeVias.Checked = iniFile.ReadBool("General", "IncludeVias", false);
-        // CbIncludeHatched.Checked = iniFile.ReadBool("General", "IncludeHatched", false);
-        // CbIncludeNets.Checked = iniFile.ReadBool("General", "IncludeNets", false);
-        CbIncludeHatched.Checked = false;
-        CbIncludeNets.Checked = false;
+        CbIncludeHatched.Checked = iniFile.ReadBool("General", "IncludeHatched", false);
+        CbIncludeNets.Checked = iniFile.ReadBool("General", "IncludeNets", false);
+        var generateMode = iniFile.ReadString("General", "GenerateMode", "all");
+        if (generateMode == "compact") {
+            RBtnGenerateCompact.Checked = true;
+        } else {
+            RBtnGenerateAll.Checked = true;
+        }
 
         CbBlacklistEmpty.Checked = iniFile.ReadBool("General", "BlacklistEmpty", true);
         CbBlacklist1Pad.Checked = iniFile.ReadBool("General", "Blacklist1Pad", true);
@@ -145,10 +151,11 @@ function mainWinShow(Sender) {
         CbBlacklist1Pad.Checked = true;
         CbBlacklistTh.Checked = false;
 
-        CbIncludeTracksAndSolidPolygons.Checked = false;
+        CbIncludeTracksAndSolidPolygons.Checked = true;
         CbIncludeVias.Checked = false;
         CbIncludeHatched.Checked = false;
         CbIncludeNets.Checked = false;
+        RBtnGenerateAll.Checked = true;
 
         CbBlacklistEmpty.Checked = true;
         CbBlacklist1Pad.Checked = true;
@@ -235,19 +242,39 @@ function GenerateBomClick(Sender) {
     // config.htmlConfig["extra_fields"] = [];
     config.htmlConfig["board_rotation"] = TTrackBarRotation.Position * 5 - 180;
 
-    config.include["tracks"] = CbIncludeTracksAndSolidPolygons.Checked;
-    config.include["polys"] = CbIncludeTracksAndSolidPolygons.Checked;
-    config.include["polyHatched"] = CbIncludeHatched.Checked;
-    config.include["vias"] = CbIncludeVias.Checked;
-    config.include["nets"] = CbIncludeNets.Checked;
+    var generateAll = RBtnGenerateAll.Checked;
+    config.include["tracks"] = generateAll || CbIncludeTracksAndSolidPolygons.Checked;
+    config.include["polys"] = generateAll || CbIncludeTracksAndSolidPolygons.Checked;
+    config.include["polyHatched"] = generateAll || CbIncludeHatched.Checked;
+    config.include["vias"] = generateAll || CbIncludeVias.Checked;
+    config.include["nets"] = generateAll || CbIncludeNets.Checked;
+
+    // Full mode always embeds all PCB data; the checkboxes only control what
+    // the generated HTML displays by default. Compact mode embeds just the
+    // checked data, and shows the same selection.
+    config.htmlConfig["show_tracks"] = CbIncludeTracksAndSolidPolygons.Checked;
+    config.htmlConfig["show_zones"] = CbIncludeTracksAndSolidPolygons.Checked || CbIncludeHatched.Checked;
+    config.htmlConfig["show_vias"] = CbIncludeVias.Checked;
 
     var filename = getSaveDir(TEditCurrentPcbPath.Text);
     if (filename == "") {
         return;
     }
 
-    var pcb = parsePcb(config);
+    var pcb = null;
+    try {
+        pcb = parsePcb(config);
+    } catch (err) {
+        try {
+            PCBServer.PostProcess;
+        } catch (e) {}
+        showmessage("生成BOM出错: " + err.message);
+        return;
+    }
     if (!pcb) {
+        try {
+            PCBServer.PostProcess;
+        } catch (e) {}
         return;
     };
 
@@ -378,6 +405,7 @@ function TTrackBarRotationChange(Sender) {
 function setValueToInifile(iniFileName) {
     var iniFile = TIniFile.Create(iniFileName);
     iniFile.WriteString("General", "Directory", TEditCurrentPcbPath.Text);
+    iniFile.WriteString("General", "GenerateMode", RBtnGenerateAll.Checked ? "all" : "compact");
     iniFile.WriteBool("General", "IncludeTracksAndSolidPolygons", CbIncludeTracksAndSolidPolygons.Checked);
     iniFile.WriteBool("General", "IncludeVias", CbIncludeVias.Checked);
     iniFile.WriteBool("General", "IncludeHatched", CbIncludeHatched.Checked);

@@ -1,1 +1,1 @@
-var CURRENT_PATH = "C:\\Users\\14117\\OneDrive\\нд╪Ч╪п ╪╞\\ADт╙╪Ч©Б\\╫е╠╬\\AD╫е╠╬-╫╩╩╔й╫BOM\\InteractiveHtmlBomForAD-master(V2.12.0)";
+var CURRENT_PATH = "C:\\Users\\14117\\OneDrive\\Ф√┤Д╩╤Е╓╧ И⌡├\\ADЕ┘┐Д╩╤Е╨⌠\\Х└ Ф°╛\\ADХ└ Ф°╛-Д╨╓Д╨▓Е╪▐BOM\\InteractiveHtmlBomForAD-master(V2.12.0)\\";

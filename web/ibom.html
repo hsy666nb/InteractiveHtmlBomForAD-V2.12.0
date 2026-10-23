@@ -93,14 +93,6 @@
             <input id="silkscreenCheckbox" type="checkbox" checked onchange="silkscreenVisible(this.checked)">
             丝印层
           </label>
-          <label class="menu-label" style="width: calc(50% - 18px)">
-            <input id="referencesCheckbox" type="checkbox" checked onchange="referencesVisible(this.checked)">
-            位号
-          </label><!-- This comment eats space! All of it!
-          --><label class="menu-label" style="width: calc(50% - 17px); border-left: 0;">
-            <input id="valuesCheckbox" type="checkbox" checked onchange="valuesVisible(this.checked)">
-            值
-          </label>
           <div id="tracksAndZonesCheckboxes">
             <label class="menu-label" style="width: calc(50% - 18px)">
               <input id="tracksCheckbox" type="checkbox" checked onchange="tracksVisible(this.checked)">
@@ -111,19 +103,27 @@
               铜皮
             </label>
           </div>
-          <label class="menu-label" style="width: calc(50% - 18px)">
+          <label id="viasLabel" class="menu-label" style="width: calc(50% - 18px);">
+            <input id="viasCheckbox" type="checkbox" checked onchange="viasVisible(this.checked)">
+            过孔
+          </label><!-- This comment eats space! All of it!
+          --><label class="menu-label" style="width: calc(50% - 17px); border-left: 0;">
             <input id="padsCheckbox" type="checkbox" checked onchange="padsVisible(this.checked)">
             焊盘
+          </label>
+          <label class="menu-label" style="width: calc(50% - 18px)">
+            <input id="valuesCheckbox" type="checkbox" checked onchange="valuesVisible(this.checked)">
+            值
           </label><!-- This comment eats space! All of it!
           --><label class="menu-label" style="width: calc(50% - 17px); border-left: 0;">
             <input id="dnpOutlineCheckbox" type="checkbox" checked onchange="dnpOutline(this.checked)">
-            DNP描边
+            空焊盘描边
           </label>
-          <label class="menu-label">
+          <label class="menu-label" style="width: calc(50% - 18px)">
             <input id="highlightRowOnClickCheckbox" type="checkbox" checked onchange="setHighlightRowOnClick(this.checked)">
             点击高亮行
-          </label>
-          <label class="menu-label">
+          </label><!-- This comment eats space! All of it!
+          --><label class="menu-label" style="width: calc(50% - 17px); border-left: 0;">
             <input id="dragCheckbox" type="checkbox" checked onchange="setRedrawOnDrag(this.checked)">
             拖动时实时重绘
           </label>

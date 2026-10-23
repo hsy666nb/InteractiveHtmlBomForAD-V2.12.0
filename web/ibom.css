@@ -15,9 +15,10 @@
   --fabrication-edge-color: #907651;
   --fabrication-polygon-color: #907651;
   --fabrication-text-color: #a27c24;
-  --track-color: #def5f1;
+  --track-color: #2f5fa8;
   --track-color-highlight: #D04040;
-  --zone-color: #def5f1;
+  --zone-color: #aac9e8;
+  --zone-hatch-color: #5a86b8;
   --zone-color-highlight: #d0404080;
 }
 
@@ -33,8 +34,9 @@ body {
   --pad-color: #808080;
   --pin1-outline-color: #ffa800;
   --pin1-outline-color-highlight: #ccff00;
-  --track-color: #42524f;
-  --zone-color: #42524f;
+  --track-color: #7ac7ff;
+  --zone-color: #35526e;
+  --zone-hatch-color: #6aa6d8;
   background-color: #252c30;
   color: #eee;
 }
@@ -590,7 +592,7 @@ mark.highlight {
   position: absolute;
   background-color: white;
   right: 0;
-  min-width: 300px;
+  min-width: 350px;
   box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
   z-index: 100;
   padding: 8px;
@@ -600,13 +602,13 @@ mark.highlight {
   background-color: #111;
 }
 
-.menu:hover .menu-content {
+.menu.open .menu-content {
   display: block;
 }
 
-.menu:hover .menubtn,
-.menu:hover .iobtn,
-.menu:hover .statsbtn {
+.menu.open .menubtn,
+.menu.open .iobtn,
+.menu.open .statsbtn {
   background-color: #eee;
 }
 
@@ -620,6 +622,18 @@ mark.highlight {
 
 .menu-label-top {
   border-top: 1px solid #ccc;
+}
+
+/* Setting that the exported data does not contain: keep it visible but grayed out. */
+.menu-label.disabled,
+.menu-label.disabled input {
+  color: #999;
+  cursor: default;
+}
+
+.dark .menu-label.disabled,
+.dark .menu-label.disabled input {
+  color: #666;
 }
 
 .menu-textbox {

@@ -21,10 +21,11 @@ Number.prototype.round = function anonymFun_round(n) {
 
 function rotatePoint(cPoint, rPoint, angle) {
     var rad = Degrees2Radians(angle);
-    return [
-        ((rPoint[0] - cPoint[0]) * Math.cos(rad) - (rPoint[1] - cPoint[1]) * Math.sin(rad) + cPoint[0]).round(), 
-        -((rPoint[0] - cPoint[0]) * Math.sin(rad) + (rPoint[1] - cPoint[1]) * Math.cos(rad) + cPoint[1]).round()
-    ];
+    var dx = rPoint[0] - cPoint[0];
+    var dy = rPoint[1] - cPoint[1];
+    var nx = (dx * Math.cos(rad) - dy * Math.sin(rad) + cPoint[0]).round();
+    var ny = -((dx * Math.sin(rad) + dy * Math.cos(rad) + cPoint[1]).round());
+    return [nx, ny];
 }
 
 
@@ -119,6 +120,24 @@ function parsePcb(config) {
     pcb.Layers.KEEP_OUT_LAYER = String2Layer("Keep Out Layer");
     pcb.Layers.MULTI_LAYER = String2Layer("Multi Layer");
 
+    // Resolve the fill object id once: AD exposes it as eFillObject in some
+    // builds and eFillobject in others. Passing an undefined value to MkSet
+    // can crash the scripting system.
+    var FILL_OBJ = (typeof eFillObject != "undefined") ? eFillObject : eFillobject;
+
+    function getNetName(Prim) {
+        try {
+            if (!Prim.InNet) return "";
+            var net = Prim.Net;
+            if (net == null) return "";
+            if (typeof net == "string") return net;
+            if (net.Name == null) return "";
+            return String(net.Name);
+        } catch (e) {
+            return "";
+        }
+    }
+
     function parseTrack(Prim) {
         var res = {};
         var start = [CoordToMMs(Prim.x1).round(), -CoordToMMs(Prim.y1).round()];
@@ -134,8 +153,11 @@ function parsePcb(config) {
             res["width"] = CoordToMMs(Prim.Width).round();
         } 
 
-        if (Prim.InNet) {
-            // res["net"] = Prim.Net.Name;
+        // Only copper primitives carry a net; touching the net API on
+        // silkscreen / mechanical graphics can crash inside AD.
+        if (config.include.nets && (Prim.Layer == eTopLayer || Prim.Layer == eBottomLayer)) {
+            var net = getNetName(Prim);
+            if (net) res["net"] = net;
         };
 
         return res;
@@ -144,6 +166,7 @@ function parsePcb(config) {
     function parseArc(Prim) {
         var res = {};
         var width = CoordToMMs(Prim.LineWidth).round();
+        var netName = (config.include.nets && (Prim.Layer == eTopLayer || Prim.Layer == eBottomLayer)) ? getNetName(Prim) : "";
         function arc2path(cx, cy, radius, startangle, endangle) {
             var startrad = Degrees2Radians(startangle);
             var endrad = Degrees2Radians(endangle);
@@ -210,6 +233,12 @@ function parsePcb(config) {
                 }     
             }
 
+            if (netName) {
+                for (var j = 0; j < tracks.length; j++) {
+                    tracks[j]["net"] = netName;
+                }
+            }
+
             return tracks;
         }
 
@@ -224,6 +253,7 @@ function parsePcb(config) {
             res["start"] = [CoordToMMs(Prim.XCenter).round(), -CoordToMMs(Prim.YCenter).round()];
             res["radius"] = CoordToMMs(Prim.Radius).round();
             res["layer"] = Prim.Layer;
+            if (netName) res["net"] = netName;
             return res;
         }
     }
@@ -345,6 +375,11 @@ function parsePcb(config) {
             delete res["offset"];
         }
 
+        if (config.include.nets) {
+            var net = getNetName(Prim);
+            if (net) res["net"] = net;
+        }
+
         pads.push(res);
 
         return pads;
@@ -419,9 +454,13 @@ function parsePcb(config) {
             res["drillshape"] = "circle";
         }
 
-        if (Prim.InNet) {
-            // res["net"] = Prim.Net.Name;
+        if (config.include.nets) {
+            var net = getNetName(Prim);
+            if (net) res["net"] = net;
         }
+        // Mark the pad as a via so the viewer can hide vias independently of
+        // real footprint pads.
+        res["via"] = true;
         vias.push(res);
 
         return vias;
@@ -452,9 +491,10 @@ function parsePcb(config) {
         res["type"] = "polygon";
         res["layer"] = Prim.Layer;
        
-       if (Prim.InNet) {
-        // res.net = ""; 
-       } else {}
+        if (config.include.nets && (Prim.Layer == eTopLayer || Prim.Layer == eBottomLayer)) {
+            var net = getNetName(Prim);
+            if (net) res["net"] = net;
+        }
 
         // if (!Prim.IsFreePrimitive) {
         //     res['free'] = false;
@@ -488,9 +528,10 @@ function parsePcb(config) {
         res["type"] = "polygon";
         res["svgpath"] = ["M", polygons.shift(), "L", polygons.join("L"), "Z "].join("") + holes_svg.join(""); 
         res["layer"] = Prim.Layer;
-        if (Prim.InNet) {
-            // res["net"] = Prim.Net.Name;
-        } else {}
+        if (config.include.nets && (Prim.Layer == eTopLayer || Prim.Layer == eBottomLayer)) {
+            var net = getNetName(Prim);
+            if (net) res["net"] = net;
+        }
 
         return res;
     }
@@ -525,6 +566,9 @@ function parsePcb(config) {
             }
             Prim = Iter.NextPCBObject;
         }
+        try {
+            Polygon.GroupIterator_Destroy(Iter);
+        } catch (e) {}
 
         var len = hatched_drawings.length;
         if (len > 1) {
@@ -533,10 +577,23 @@ function parsePcb(config) {
             for (var i = 0; i < len; i++) {
                 pathArr.push(hatched_drawings[i].svgpath);
             }
-            hatchedAll2One["width"] = CoordToMMs(Polygon.TrackSize).round();
+            var trackWidth = 0.2;
+            hatchedAll2One["width"] = trackWidth;
             hatchedAll2One["type"] = "polygon"
             hatchedAll2One["svgpath"] = pathArr.join(" ");
             hatchedAll2One["layer"] = hatched_drawings[0].layer;
+            if (config.include.nets) {
+                // Avoid touching Polygon.Net directly; reuse the net already
+                // resolved on the polygon's child primitives instead.
+                var net = "";
+                for (var q = 0; q < len; q++) {
+                    if (hatched_drawings[q] && hatched_drawings[q]["net"]) {
+                        net = hatched_drawings[q]["net"];
+                        break;
+                    }
+                }
+                if (net) hatchedAll2One["net"] = net;
+            }
             drawings.push(hatchedAll2One);
         }
         return drawings;
@@ -844,6 +901,7 @@ function parsePcb(config) {
     PCBServer.PreProcess;
     var board = PCBServer.GetCurrentPCBBoard();
     if (board == null) {
+        PCBServer.PostProcess;
         showmessage("ERROR:Current document is not a PCB document");
         return false;
     }
@@ -955,63 +1013,104 @@ function parsePcb(config) {
     };
     
     // rough handling tracks and zones, not done
-    Iter = pcb.board.BoardIterator_Create;
+    var wantTracks = config.include.tracks;
+    var wantPolys = config.include.polys;
+    var wantHatched = config.include.polyHatched;
 
-    if (config.include.tracks && !config.include.polys) {
-        Iter.AddFilter_ObjectSet(MkSet(eTrackObject, eArcObject));
-    } else if (config.include.polys && !config.include.tracks) {
-        Iter.AddFilter_ObjectSet(MkSet(eFillobject, eRegionObject, ePolyObject));
-    } else if (config.include.polys && config.include.tracks) {
-        Iter.AddFilter_ObjectSet(MkSet(eFillobject, eRegionObject, ePolyObject, eArcObject, eTrackObject));
-    } else {
-        Iter.AddFilter_ObjectSet(MkSet());
-    }
-
-    Iter.AddFilter_LayerSet(MkSet(eTopLayer, eBottomLayer));
-    Iter.AddFilter_Method(eProcessAll);
     var draws = {};
     draws["tracks"] = [];
     draws["polygons"] = [];
     draws["arcs"] = [];
-    Prim = Iter.FirstPCBObject;
-    while (Prim != null) {
-        if (Prim.InComponent || Prim.InPolygon) {
-            Prim = Iter.NextPCBObject;
-            continue; 
+
+    if (wantTracks || wantPolys || wantHatched) {
+        Iter = pcb.board.BoardIterator_Create;
+
+        if (wantTracks && wantPolys) {
+            Iter.AddFilter_ObjectSet(MkSet(FILL_OBJ, eRegionObject, ePolyObject, eArcObject, eTrackObject));
+        } else if (wantTracks) {
+            Iter.AddFilter_ObjectSet(MkSet(eTrackObject, eArcObject));
+        } else if (wantPolys) {
+            Iter.AddFilter_ObjectSet(MkSet(FILL_OBJ, eRegionObject, ePolyObject));
+        } else {
+            Iter.AddFilter_ObjectSet(MkSet(ePolyObject));
         }
 
-        switch (Prim.ObjectId) {
-            case eTrackObject:
-                draws.tracks.push(parseTrack(Prim));
-                break;
-            case eArcObject:
-                if (Prim.IsFreePrimitive) {
-                    draws.tracks = draws.tracks.concat(parseArc(Prim));
-                } else {
-                    // draws.arcs.push(parseArc(Prim));
+        Iter.AddFilter_LayerSet(MkSet(eTopLayer, eBottomLayer));
+        Iter.AddFilter_Method(eProcessAll);
+        Prim = Iter.FirstPCBObject;
+        while (Prim != null) {
+            try {
+                if (!(Prim.InComponent || Prim.InPolygon)) {
+                    switch (Prim.ObjectId) {
+                        case eTrackObject:
+                            draws.tracks.push(parseTrack(Prim));
+                            break;
+                        case eArcObject:
+                            if (Prim.IsFreePrimitive) {
+                                draws.tracks = draws.tracks.concat(parseArc(Prim));
+                            } else {
+                                // draws.arcs.push(parseArc(Prim));
+                            }
+                            break;
+                        case FILL_OBJ:
+                            if (!wantPolys) break;
+                            draws.polygons.push(parseFill(Prim));
+                            break;
+                        case eRegionObject:
+                            if (!wantPolys) break;
+                            draws.polygons.push(parseRegion(Prim));
+                            break;
+                        case ePolyObject:
+                            if (Prim.PolyHatchStyle == ePolySolid) {
+                                if (!wantPolys) break;
+                            } else {
+                                if (!wantHatched) break;
+                            }
+                            draws.polygons = draws.polygons.concat(parsePoly(Prim));
+                            break;
+                        default:
+                    }
                 }
-                break;
-            case eFillobject:
-                draws.polygons.push(parseFill(Prim));
-                break;
-            case eRegionObject:
-                draws.polygons.push(parseRegion(Prim));
-                break;    
-            case ePolyObject:
-                if ((Prim.PolyHatchStyle != ePolySolid) && (!config.include.polyHatched)) {
-                    break; 
-                }
-                draws.polygons = draws.polygons.concat(parsePoly(Prim));
-                break;                   
-            default:
-        }    
-        Prim = Iter.NextPCBObject;
-    }
-    pcb.board.BoardIterator_Destroy(Iter);
+            } catch (err) {
+                // Skip primitives that cannot be parsed instead of failing the
+                // whole export.
+            }
+            Prim = Iter.NextPCBObject;
+        }
+        pcb.board.BoardIterator_Destroy(Iter);
 
-    if (config.include.tracks || config.include.polys) {
-        pcb.pcbdata["tracks"] = parseDrawingsOnLayers(draws.tracks, eTopLayer, eBottomLayer);  
-        pcb.pcbdata["zones"] = parseDrawingsOnLayers(draws.polygons, eTopLayer, eBottomLayer);  
+        pcb.pcbdata["tracks"] = parseDrawingsOnLayers(draws.tracks, eTopLayer, eBottomLayer);
+        pcb.pcbdata["zones"] = parseDrawingsOnLayers(draws.polygons, eTopLayer, eBottomLayer);
+    }
+
+    // Collect the net names referenced by the exported geometry so that the
+    // viewer can highlight a whole net on click and offer the netlist table.
+    if (config.include.nets) {
+        var netSeen = {};
+        var netList = [];
+        var collectNet = function collectNet(item) {
+            if (item == null) return;
+            var n = item["net"];
+            if (n == null || n == "") return;
+            if (netSeen[n]) return;
+            netSeen[n] = true;
+            netList.push(n);
+        };
+        var layerKeys = ["F", "B"];
+        var k, i, j, arr;
+        for (k = 0; k < layerKeys.length; k++) {
+            arr = pcb.pcbdata["tracks"] ? pcb.pcbdata["tracks"][layerKeys[k]] : null;
+            if (arr) for (i = 0; i < arr.length; i++) collectNet(arr[i]);
+            arr = pcb.pcbdata["zones"] ? pcb.pcbdata["zones"][layerKeys[k]] : null;
+            if (arr) for (i = 0; i < arr.length; i++) collectNet(arr[i]);
+        }
+        for (i = 0; i < pcb.pcbdata["footprints"].length; i++) {
+            var fpPads = pcb.pcbdata["footprints"][i]["pads"];
+            if (!fpPads) continue;
+            for (j = 0; j < fpPads.length; j++) collectNet(fpPads[j]);
+        }
+        netList.sort();
+        if (netList.length > 0) pcb.pcbdata["nets"] = netList;
     }
 
     var str_text = [];

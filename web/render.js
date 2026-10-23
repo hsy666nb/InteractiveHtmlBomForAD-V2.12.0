@@ -2,6 +2,8 @@
 
 var emptyContext2d = document.createElement("canvas").getContext("2d");
 
+var allcanvas = {};
+
 function deg2rad(deg) {
   return deg * Math.PI / 180;
 }
@@ -366,6 +368,7 @@ function drawFootprint(ctx, layer, scalefactor, footprint, colors, highlight, ou
   // draw pads
   if (settings.renderPads) {
     for (var pad of footprint.pads) {
+      if (pad.via && !settings.renderVias) continue;
       if (pad.layers.includes(layer)) {
         var padColor = highlight ? colors.pad : settings.netColors[pad.net] || colors.pad;
         drawPad(ctx, pad, padColor, outline);
@@ -377,6 +380,7 @@ function drawFootprint(ctx, layer, scalefactor, footprint, colors, highlight, ou
       }
     }
     for (var pad of footprint.pads) {
+      if (pad.via && !settings.renderVias) continue;
       drawPadHole(ctx, pad, colors.padHole);
     }
   }
@@ -463,6 +467,8 @@ function drawBgLayer(layername, canvas, layer, scalefactor, edgeColor, polygonCo
 function drawTracks(canvas, layer, defaultColor, highlight) {
   ctx = canvas.getContext("2d");
   ctx.lineCap = "round";
+  var transform = ctx.getTransform ? ctx.getTransform() : null;
+  var minWidth = transform && Math.abs(transform.a) > 0 ? 1 / Math.abs(transform.a) : 0;
 
   var hasHole = (track) => (
     'drillsize' in track &&
@@ -474,7 +480,7 @@ function drawTracks(canvas, layer, defaultColor, highlight) {
     if (highlight && highlightedNet != track.net) continue;
     if (!hasHole(track)) {
       ctx.strokeStyle = highlight ? defaultColor : settings.netColors[track.net] || defaultColor;
-      ctx.lineWidth = track.width;
+      ctx.lineWidth = Math.max(track.width, minWidth);
       ctx.beginPath();
       if ('radius' in track) {
         ctx.arc(
@@ -517,19 +523,21 @@ function drawTracks(canvas, layer, defaultColor, highlight) {
   }
 }
 
-function drawZones(canvas, layer, defaultColor, highlight) {
+function drawZones(canvas, layer, defaultColor, highlight, hatchColor) {
   ctx = canvas.getContext("2d");
   ctx.lineJoin = "round";
+  var transform = ctx.getTransform ? ctx.getTransform() : null;
+  var minWidth = transform && Math.abs(transform.a) > 0 ? 1 / Math.abs(transform.a) : 0;
   for (var zone of pcbdata.zones[layer]) {
     if (highlight && highlightedNet != zone.net) continue;
-    ctx.strokeStyle = highlight ? defaultColor : settings.netColors[zone.net] || defaultColor;
     ctx.fillStyle = highlight ? defaultColor : settings.netColors[zone.net] || defaultColor;
+    ctx.strokeStyle = highlight ? defaultColor : settings.netColors[zone.net] || hatchColor || defaultColor;
     if (!zone.path2d) {
       zone.path2d = getPolygonsPath(zone);
     }
     ctx.fill(zone.path2d, zone.fillrule || "nonzero");
     if (zone.width > 0) {
-      ctx.lineWidth = zone.width;
+      ctx.lineWidth = Math.max(zone.width, minWidth);
       ctx.stroke(zone.path2d);
     }
   }
@@ -556,7 +564,8 @@ function drawNets(canvas, layer, highlight) {
   var style = getComputedStyle(topmostdiv);
   if (settings.renderZones) {
     var zoneColor = style.getPropertyValue(highlight ? '--zone-color-highlight' : '--zone-color');
-    drawZones(canvas, layer, zoneColor, highlight);
+    var hatchColor = style.getPropertyValue('--zone-hatch-color');
+    drawZones(canvas, layer, zoneColor, highlight, hatchColor);
   }
   if (settings.renderTracks) {
     var trackColor = style.getPropertyValue(highlight ? '--track-color-highlight' : '--track-color');
@@ -569,6 +578,7 @@ function drawNets(canvas, layer, highlight) {
       // draw pads
       var padDrawn = false;
       for (var pad of footprint.pads) {
+        if (pad.via && !settings.renderVias) continue;
         if (highlightedNet != pad.net) continue;
         if (pad.layers.includes(layer)) {
           drawPad(ctx, pad, padColor, false);
@@ -578,6 +588,7 @@ function drawNets(canvas, layer, highlight) {
       if (padDrawn) {
         // redraw all pad holes because some pads may overlap
         for (var pad of footprint.pads) {
+          if (pad.via && !settings.renderVias) continue;
           drawPadHole(ctx, pad, padHoleColor);
         }
       }
@@ -726,6 +737,7 @@ function resizeCanvas(layerdict) {
 }
 
 function resizeAll() {
+  if (!allcanvas.front || !allcanvas.back) return;
   resizeCanvas(allcanvas.front);
   resizeCanvas(allcanvas.back);
 }
@@ -828,6 +840,7 @@ function netHitScan(layer, x, y) {
   if (settings.renderPads) {
     for (var footprint of pcbdata.footprints) {
       for (var pad of footprint.pads) {
+        if (pad.via && !settings.renderVias) continue;
         if (pad.layers.includes(layer) && pointWithinPad(x, y, pad)) {
           return pad.net;
         }

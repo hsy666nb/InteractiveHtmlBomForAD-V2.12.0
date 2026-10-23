@@ -187,8 +187,7 @@ function initJSON(non) {
         Date.prototype.toJSON = function anonymFun2JSON(non) {
 
             return isFinite(this.valueOf())
-                ? (
-                    this.getUTCFullYear()
+                ? this.getUTCFullYear()
                     + "-"
                     + f(this.getUTCMonth() + 1)
                     + "-"
@@ -200,7 +199,6 @@ function initJSON(non) {
                     + ":"
                     + f(this.getUTCSeconds())
                     + "Z"
-                )
                 : null;
         };
 
@@ -248,11 +246,9 @@ function initJSON(non) {
 
 // If the value has a toJSON method, call it to obtain a replacement value.
 
-        if (
-            value
+        if (value
             && typeof value === "object"
-            && typeof value.toJSON === "function"
-        ) {
+            && typeof value.toJSON === "function") {
             value = value.toJSON(key);
         }
 
@@ -321,14 +317,12 @@ function initJSON(non) {
                 v = partial.length === 0
                     ? "[]"
                     : gap
-                        ? (
-                            "[\n"
+                        ? "[\n"
                             + gap
                             + partial.join(",\n" + gap)
                             + "\n"
                             + mind
                             + "]"
-                        )
                         : "[" + partial.join(",") + "]";
                 gap = mind;
                 return v;
@@ -343,11 +337,7 @@ function initJSON(non) {
                         k = rep[i];
                         v = str(k, value);
                         if (v) {
-                            partial.push(quote(k) + (
-                                (gap)
-                                    ? ": "
-                                    : ":"
-                            ) + v);
+                            partial.push(quote(k) + (gap ? ": " : ":") + v);
                         }
                     }
                 }
@@ -359,11 +349,7 @@ function initJSON(non) {
                     if (Object.prototype.hasOwnProperty.call(value, k)) {
                         v = str(k, value);
                         if (v) {
-                            partial.push(quote(k) + (
-                                (gap)
-                                    ? ": "
-                                    : ":"
-                            ) + v);
+                            partial.push(quote(k) + (gap ? ": " : ":") + v);
                         }
                     }
                 }
@@ -424,10 +410,9 @@ function initJSON(non) {
 // Otherwise, throw an error.
 
             rep = replacer;
-            if (replacer && typeof replacer !== "function" && (
-                typeof replacer !== "object"
-                || typeof replacer.length !== "number"
-            )) {
+            if (replacer && typeof replacer !== "function"
+                && (typeof replacer !== "object"
+                || typeof replacer.length !== "number")) {
                 throw new Error("JSON.stringify");
             }
 
@@ -481,10 +466,8 @@ function initJSON(non) {
             rx_dangerous.lastIndex = 0;
             if (rx_dangerous.test(text)) {
                 text = text.replace(rx_dangerous, function anonymFun2(a) {
-                    return (
-                        "\\u"
-                        + ("0000" + a.charCodeAt(0).toString(16)).slice(-4)
-                    );
+                    return "\\u"
+                        + ("0000" + a.charCodeAt(0).toString(16)).slice(-4);
                 });
             }
 
@@ -501,14 +484,11 @@ function initJSON(non) {
 // we look to see that the remaining characters are only whitespace or "]" or
 // "," or ":" or "{" or "}". If that is so, then the text is safe for eval.
 
-            if (
-                rx_one.test(
-                    text
-                        .replace(rx_two, "@")
-                        .replace(rx_three, "]")
-                        .replace(rx_four, "")
-                )
-            ) {
+            if (rx_one.test(
+                text
+                    .replace(rx_two, "@")
+                    .replace(rx_three, "]")
+                    .replace(rx_four, ""))) {
 
 // In the third stage we use the eval function to compile the text into a
 // JavaScript structure. The "{" operator is subject to a syntactic ambiguity

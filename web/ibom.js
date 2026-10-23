@@ -56,6 +56,12 @@ function zonesVisible(value) {
   redrawIfInitDone();
 }
 
+function viasVisible(value) {
+  writeStorage("viasVisible", value);
+  settings.renderVias = value;
+  redrawIfInitDone();
+}
+
 function dnpOutline(value) {
   writeStorage("dnpOutline", value);
   settings.renderDnpOutline = value;
@@ -1346,7 +1352,36 @@ function topToggle() {
   }
 }
 
+function closeMenus() {
+  var openMenus = document.querySelectorAll(".menu.open");
+  for (var menu of openMenus) menu.classList.remove("open");
+}
+
+function setupMenus() {
+  var menus = document.querySelectorAll(".menu");
+  for (var menu of menus) {
+    var btn = menu.querySelector(".menubtn, .statsbtn, .iobtn, .visbtn");
+    if (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var owner = this.parentNode;
+        var wasOpen = owner.classList.contains("open");
+        closeMenus();
+        if (!wasOpen) owner.classList.add("open");
+      });
+    }
+    var content = menu.querySelector(".menu-content");
+    if (content) {
+      content.addEventListener("click", function (e) {
+        e.stopPropagation();
+      });
+    }
+  }
+  document.addEventListener("click", closeMenus);
+}
+
 window.onload = function (e) {
+  setupMenus();
   initRender();
   initStorage();
   initDefaults();
